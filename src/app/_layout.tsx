@@ -1,22 +1,41 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useColorScheme } from 'react-native';
-import { SQLiteProvider } from 'expo-sqlite';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 
 import { migrateDbIfNeeded } from '@/db/schema';
+import { useActiveColorScheme } from '@/hooks/use-theme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutContent() {
+  const db = useSQLiteContext();
+  const colorScheme = useActiveColorScheme();
+  const loadSettings = useSettingsStore((state) => state.loadSettings);
+
+  useEffect(() => {
+    loadSettings(db);
+  }, [db, loadSettings]);
 
   return (
-    <SQLiteProvider databaseName="habits.db" onInit={migrateDbIfNeeded}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Stack screenOptions={{ animation: 'slide_from_right' }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="add-habit" options={{ title: 'New habit', presentation: 'modal' }} />
-          <Stack.Screen name="habit/[id]" options={{ title: '' }} />
+          <Stack.Screen name="habit/[id]/index" options={{ title: '' }} />
+          <Stack.Screen name="habit/[id]/edit" options={{ title: 'Edit habit', presentation: 'modal' }} />
+          <Stack.Screen name="settings" options={{ title: 'Settings', presentation: 'modal' }} />
         </Stack>
-      </ThemeProvider>
+      </GestureHandlerRootView>
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SQLiteProvider databaseName="habits.db" onInit={migrateDbIfNeeded}>
+      <RootLayoutContent />
     </SQLiteProvider>
   );
 }

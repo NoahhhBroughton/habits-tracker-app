@@ -7,15 +7,18 @@ import type { HabitWithStats } from '@/types/habit';
 type Props = {
   habit: HabitWithStats;
   onPress: () => void;
-  onToggleToday: () => void;
+  onPressAction: () => void;
+  onLongPress?: () => void;
 };
 
-export function HabitRow({ habit, onPress, onToggleToday }: Props) {
+export function HabitRow({ habit, onPress, onPressAction, onLongPress }: Props) {
   const theme = useTheme();
+  const isQuantity = habit.trackingType === 'quantity';
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -35,19 +38,44 @@ export function HabitRow({ habit, onPress, onToggleToday }: Props) {
         </ThemedText>
       </View>
 
-      <Pressable
-        onPress={onToggleToday}
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 16,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: habit.doneToday ? habit.color : theme.backgroundSelected,
-        }}
-      >
-        {habit.doneToday ? <ThemedText style={{ color: '#fff' }}>✓</ThemedText> : null}
-      </Pressable>
+      {onLongPress ? (
+        <ThemedText themeColor="textSecondary" style={{ fontSize: 18, paddingHorizontal: 2 }}>
+          ⠿
+        </ThemedText>
+      ) : null}
+
+      {isQuantity ? (
+        <Pressable
+          onPress={onPressAction}
+          style={{
+            minWidth: 56,
+            height: 32,
+            borderRadius: 16,
+            paddingHorizontal: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: habit.doneToday ? habit.color : theme.backgroundSelected,
+          }}
+        >
+          <ThemedText style={{ fontSize: 12, color: habit.doneToday ? '#fff' : theme.text }}>
+            {habit.todayValue}/{habit.targetValue} {habit.unit}
+          </ThemedText>
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={onPressAction}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: habit.doneToday ? habit.color : theme.backgroundSelected,
+          }}
+        >
+          {habit.doneToday ? <ThemedText style={{ color: '#fff' }}>✓</ThemedText> : null}
+        </Pressable>
+      )}
     </Pressable>
   );
 }

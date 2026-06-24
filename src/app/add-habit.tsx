@@ -33,6 +33,8 @@ export default function AddHabitScreen() {
       trackingType: values.trackingType,
       targetValue: values.targetValue,
       unit: values.unit,
+      frequencyType: values.frequencyType,
+      frequencyDays: values.frequencyDays,
       reminders,
     });
     router.back();

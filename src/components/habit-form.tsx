@@ -9,7 +9,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { TrackingType } from '@/types/habit';
+import { formatReminderTime } from '@/lib/time';
+import type { FrequencyType, TrackingType } from '@/types/habit';
 
 const DEFAULT_EMOJI = '✅';
 
@@ -24,6 +25,8 @@ const COLOR_ROWS = [
   ['#14b8a6', '#6366f1', '#84cc16', '#06b6d4', '#f43f5e', '#78716c', '#0ea5e9'],
 ];
 
+const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
 export type ReminderTime = { hour: number; minute: number };
 
 export type HabitFormValues = {
@@ -33,6 +36,8 @@ export type HabitFormValues = {
   trackingType: TrackingType;
   targetValue: number | null;
   unit: string | null;
+  frequencyType: FrequencyType;
+  frequencyDays: number[] | null;
   reminders: ReminderTime[];
 };
 
@@ -41,10 +46,11 @@ type Props = {
   submitLabel: string;
   isSubmitting: boolean;
   onSubmit: (values: HabitFormValues) => void;
+  footer?: React.ReactNode;
 };
 
 function formatTime(time: ReminderTime) {
-  return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
+  return formatReminderTime(time.hour, time.minute);
 }
 
 function RainbowSwatch({ size = 36 }: { size?: number }) {
@@ -95,7 +101,7 @@ function CustomTriggerRow({
   );
 }
 
-export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit }: Props) {
+export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit, footer }: Props) {
   const theme = useTheme();
 
   const [name, setName] = useState(initialValues?.name ?? '');
@@ -117,13 +123,23 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit }
   );
   const [unit, setUnit] = useState(initialValues?.unit ?? '');
 
+  const [frequencyType, setFrequencyType] = useState<FrequencyType>(initialValues?.frequencyType ?? 'daily');
+  const [frequencyDays, setFrequencyDays] = useState<number[]>(initialValues?.frequencyDays ?? []);
+
   const [reminders, setReminders] = useState<ReminderTime[]>(initialValues?.reminders ?? []);
   const [editingReminderIndex, setEditingReminderIndex] = useState<number | null>(null);
 
   const parsedTarget = parseFloat(targetValueText);
   const isQuantityValid =
     trackingType !== 'quantity' || (Number.isFinite(parsedTarget) && parsedTarget > 0 && unit.trim().length > 0);
-  const canSave = name.trim().length > 0 && isQuantityValid && !isSubmitting;
+  const isFrequencyValid = frequencyType !== 'specific_days' || frequencyDays.length > 0;
+  const canSave = name.trim().length > 0 && isQuantityValid && isFrequencyValid && !isSubmitting;
+
+  function toggleFrequencyDay(day: number) {
+    setFrequencyDays((prev) =>
+      prev.includes(day) ? prev.filter((value) => value !== day) : [...prev, day].sort()
+    );
+  }
 
   function addReminder() {
     setReminders((prev) => [...prev, { hour: 9, minute: 0 }]);
@@ -153,6 +169,8 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit }
       trackingType,
       targetValue: trackingType === 'quantity' ? parsedTarget : null,
       unit: trackingType === 'quantity' ? unit.trim() : null,
+      frequencyType,
+      frequencyDays: frequencyType === 'specific_days' ? frequencyDays : null,
       reminders,
     });
   }
@@ -227,6 +245,47 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit }
               style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
             />
           </View>
+        </View>
+      ) : null}
+
+      <ThemedText type="small" themeColor="textSecondary" style={styles.sectionLabel}>
+        How often?
+      </ThemedText>
+      <View style={styles.row}>
+        {(
+          [
+            { value: 'daily', label: 'Daily' },
+            { value: 'weekly', label: 'Weekly' },
+            { value: 'specific_days', label: 'Specific Days' },
+          ] as { value: FrequencyType; label: string }[]
+        ).map((option) => (
+          <Pressable
+            key={option.value}
+            onPress={() => setFrequencyType(option.value)}
+            style={[
+              styles.trackingTypeOption,
+              { backgroundColor: frequencyType === option.value ? theme.backgroundSelected : theme.backgroundElement },
+            ]}
+          >
+            <ThemedText style={{ fontSize: 13 }}>{option.label}</ThemedText>
+          </Pressable>
+        ))}
+      </View>
+
+      {frequencyType === 'specific_days' ? (
+        <View style={[styles.row, { marginTop: Spacing.two }]}>
+          {WEEKDAY_LABELS.map((label, day) => (
+            <Pressable
+              key={day}
+              onPress={() => toggleFrequencyDay(day)}
+              style={[
+                styles.weekdayCircle,
+                { backgroundColor: frequencyDays.includes(day) ? theme.backgroundSelected : theme.backgroundElement },
+              ]}
+            >
+              <ThemedText style={{ fontSize: 13 }}>{label}</ThemedText>
+            </Pressable>
+          ))}
         </View>
       ) : null}
 
@@ -353,6 +412,8 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit }
         <ThemedText style={{ color: theme.background }}>{submitLabel}</ThemedText>
       </Pressable>
 
+      {footer}
+
       <EmojiKeyboardPicker
         visible={isEmojiPickerOpen}
         initialEmoji={isCustomEmoji ? emoji : ''}
@@ -409,6 +470,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

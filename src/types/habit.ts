@@ -1,10 +1,13 @@
 export type TrackingType = 'boolean' | 'quantity';
 
+export type FrequencyType = 'daily' | 'weekly' | 'specific_days';
+
 export type HabitReminder = {
   id: number;
   hour: number;
   minute: number;
-  notificationId: string | null;
+  days: number[] | null;
+  notificationIds: string[];
 };
 
 export type Habit = {
@@ -17,10 +20,14 @@ export type Habit = {
   trackingType: TrackingType;
   targetValue: number | null;
   unit: string | null;
+  frequencyType: FrequencyType;
+  frequencyDays: number[] | null;
+  soundEnabled: boolean;
 };
 
 export type HabitWithStats = Habit & {
   valueByDate: Map<string, number>;
+  notesByDate: Map<string, string>;
   completedDates: Set<string>;
   reminders: HabitReminder[];
   streak: number;

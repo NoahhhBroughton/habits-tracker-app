@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { HabitRow } from '@/components/habit-row';
 import { QuantityEntryModal } from '@/components/quantity-entry-modal';
@@ -14,11 +15,50 @@ import { useTheme } from '@/hooks/use-theme';
 import { useHabitStore } from '@/store/useHabitStore';
 import type { HabitWithStats } from '@/types/habit';
 
+type SectionProps = {
+  title: string;
+  habits: HabitWithStats[];
+  db: SQLiteDatabase;
+  onPressHabit: (habit: HabitWithStats) => void;
+  onPressAction: (habit: HabitWithStats) => void;
+};
+
+function HabitSection({ title, habits, db, onPressHabit, onPressAction }: SectionProps) {
+  const reorderHabits = useHabitStore((state) => state.reorderHabits);
+
+  if (habits.length === 0) return null;
+
+  return (
+    <ThemedView style={styles.section}>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.sectionTitle}>
+        {title}
+      </ThemedText>
+      <DraggableFlatList
+        data={habits}
+        keyExtractor={(habit) => String(habit.id)}
+        scrollEnabled={false}
+        contentContainerStyle={styles.list}
+        onDragEnd={({ data }) => reorderHabits(db, data.map((habit) => habit.id))}
+        renderItem={({ item, drag, isActive }: RenderItemParams<HabitWithStats>) => (
+          <ThemedView style={{ opacity: isActive ? 0.7 : 1 }}>
+            <HabitRow
+              habit={item}
+              onPress={() => onPressHabit(item)}
+              onPressAction={() => onPressAction(item)}
+              onLongPress={drag}
+            />
+          </ThemedView>
+        )}
+      />
+    </ThemedView>
+  );
+}
+
 export default function HomeScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useTheme();
-  const { habits, isLoading, refresh, toggleToday, setTodayValue, reorderHabits } = useHabitStore();
+  const { habits, isLoading, refresh, toggleToday, setTodayValue } = useHabitStore();
   const [quantityHabit, setQuantityHabit] = useState<HabitWithStats | null>(null);
 
   useEffect(() => {
@@ -56,24 +96,35 @@ export default function HomeScreen() {
     );
   }
 
+  const dailyHabits = habits.filter((habit) => habit.frequencyType === 'daily');
+  const weeklyHabits = habits.filter((habit) => habit.frequencyType === 'weekly');
+  const specificDaysHabits = habits.filter((habit) => habit.frequencyType === 'specific_days');
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <DraggableFlatList
-        data={habits}
-        keyExtractor={(habit) => String(habit.id)}
-        contentContainerStyle={styles.list}
-        onDragEnd={({ data }) => reorderHabits(db, data.map((habit) => habit.id))}
-        renderItem={({ item, drag, isActive }: RenderItemParams<HabitWithStats>) => (
-          <ThemedView style={{ opacity: isActive ? 0.7 : 1 }}>
-            <HabitRow
-              habit={item}
-              onPress={() => router.push(`/habit/${item.id}`)}
-              onPressAction={() => handleRowAction(item)}
-              onLongPress={drag}
-            />
-          </ThemedView>
-        )}
-      />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <HabitSection
+          title="Daily"
+          habits={dailyHabits}
+          db={db}
+          onPressHabit={(habit) => router.push(`/habit/${habit.id}`)}
+          onPressAction={handleRowAction}
+        />
+        <HabitSection
+          title="Weekly"
+          habits={weeklyHabits}
+          db={db}
+          onPressHabit={(habit) => router.push(`/habit/${habit.id}`)}
+          onPressAction={handleRowAction}
+        />
+        <HabitSection
+          title="Specific Days"
+          habits={specificDaysHabits}
+          db={db}
+          onPressHabit={(habit) => router.push(`/habit/${habit.id}`)}
+          onPressAction={handleRowAction}
+        />
+      </ScrollView>
       <Pressable
         onPress={() => router.push('/settings')}
         style={[styles.settingsFab, { backgroundColor: theme.backgroundElement }]}
@@ -109,8 +160,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: Spacing.six,
+  },
+  section: {
+    marginTop: Spacing.three,
+  },
+  sectionTitle: {
+    marginLeft: Spacing.three,
+    marginBottom: Spacing.one,
+  },
   list: {
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
     gap: Spacing.two,
   },
   emptyState: {

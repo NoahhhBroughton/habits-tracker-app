@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -41,7 +41,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <ThemedText type="small" themeColor="textSecondary">
         Appearance
       </ThemedText>
@@ -79,14 +79,14 @@ export default function SettingsScreen() {
       <ThemedText type="small" themeColor="textSecondary" style={styles.version}>
         Habit Tracker v{Constants.expoConfig?.version ?? '1.0.0'}
       </ThemedText>
-    </ThemedView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: Spacing.four,
+    paddingBottom: Spacing.six,
   },
   row: {
     flexDirection: 'row',

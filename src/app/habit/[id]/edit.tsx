@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Alert, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { HabitForm, type HabitFormValues } from '@/components/habit-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
 import { cancelHabitReminder, requestNotificationPermission, scheduleHabitReminder } from '@/lib/notifications';
 import { useHabitStore, type ReminderInput } from '@/store/useHabitStore';
 
@@ -12,7 +14,7 @@ export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
-  const { habits, updateHabit } = useHabitStore();
+  const { habits, updateHabit, deleteHabit } = useHabitStore();
   const [isSaving, setIsSaving] = useState(false);
 
   const habit = habits.find((item) => item.id === Number(id));
@@ -54,9 +56,30 @@ export default function EditHabitScreen() {
       trackingType: values.trackingType,
       targetValue: values.targetValue,
       unit: values.unit,
+      frequencyType: values.frequencyType,
+      frequencyDays: values.frequencyDays,
       reminders,
     });
     router.back();
+  }
+
+  function handleDelete() {
+    Alert.alert('Delete habit', `Delete "${target.name}" and all its history?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await Promise.all(
+            target.reminders
+              .filter((reminder) => reminder.notificationId)
+              .map((reminder) => cancelHabitReminder(reminder.notificationId!))
+          );
+          await deleteHabit(db, target.id);
+          router.dismissAll();
+        },
+      },
+    ]);
   }
 
   return (
@@ -70,9 +93,16 @@ export default function EditHabitScreen() {
         trackingType: habit.trackingType,
         targetValue: habit.targetValue,
         unit: habit.unit,
+        frequencyType: habit.frequencyType,
+        frequencyDays: habit.frequencyDays,
         reminders: habit.reminders.map((reminder) => ({ hour: reminder.hour, minute: reminder.minute })),
       }}
       onSubmit={handleSubmit}
+      footer={
+        <Pressable onPress={handleDelete} style={{ marginTop: Spacing.five, alignItems: 'center' }}>
+          <ThemedText style={{ color: '#ef4444' }}>Delete habit</ThemedText>
+        </Pressable>
+      }
     />
   );
 }

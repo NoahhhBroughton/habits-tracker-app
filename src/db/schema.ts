@@ -16,7 +16,10 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       position INTEGER,
       tracking_type TEXT NOT NULL DEFAULT 'boolean',
       target_value REAL,
-      unit TEXT
+      unit TEXT,
+      frequency_type TEXT NOT NULL DEFAULT 'daily',
+      frequency_days TEXT,
+      sound_enabled INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS checkins (
@@ -24,6 +27,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       habit_id INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
       date TEXT NOT NULL,
       value REAL NOT NULL DEFAULT 1,
+      note TEXT NOT NULL DEFAULT '',
       UNIQUE(habit_id, date)
     );
 
@@ -32,6 +36,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       habit_id INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
       hour INTEGER NOT NULL,
       minute INTEGER NOT NULL,
+      days TEXT,
       notification_id TEXT
     );
 
@@ -50,6 +55,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     'ALTER TABLE habits ADD COLUMN target_value REAL',
     'ALTER TABLE habits ADD COLUMN unit TEXT',
     'ALTER TABLE checkins ADD COLUMN value REAL NOT NULL DEFAULT 1',
+    "ALTER TABLE habits ADD COLUMN frequency_type TEXT NOT NULL DEFAULT 'daily'",
+    'ALTER TABLE habits ADD COLUMN frequency_days TEXT',
+    "ALTER TABLE checkins ADD COLUMN note TEXT NOT NULL DEFAULT ''",
+    'ALTER TABLE habits ADD COLUMN sound_enabled INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE habit_reminders ADD COLUMN days TEXT',
   ];
   for (const statement of columnMigrations) {
     try {

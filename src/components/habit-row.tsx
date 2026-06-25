@@ -68,7 +68,7 @@ export function HabitRow({ habit, onPress, onPressAction, onLongPress }: Props) 
           }}
         >
           <ThemedText style={{ fontSize: 12, color: textColor }}>
-            {habit.todayValue}/{habit.targetValue} {habit.unit}
+            {habit.periodValue}/{habit.targetValue} {habit.unit}
           </ThemedText>
         </Pressable>
       ) : (

@@ -32,5 +32,8 @@ export type HabitWithStats = Habit & {
   reminders: HabitReminder[];
   streak: number;
   todayValue: number;
+  // Sum of values across the habit's current actionable period: just
+  // today's value for daily/specific_days, the whole week's for weekly.
+  periodValue: number;
   doneToday: boolean;
 };

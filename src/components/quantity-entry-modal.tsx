@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import type { FrequencyType } from '@/types/habit';
 
 type Props = {
   visible: boolean;
@@ -12,6 +13,8 @@ type Props = {
   unit: string;
   targetValue: number;
   currentValue: number;
+  periodValue: number;
+  frequencyType: FrequencyType;
   onClose: () => void;
   onSubmit: (value: number) => void;
 };
@@ -22,9 +25,12 @@ export function QuantityEntryModal({
   unit,
   targetValue,
   currentValue,
+  periodValue,
+  frequencyType,
   onClose,
   onSubmit,
 }: Props) {
+  const isWeekly = frequencyType === 'weekly';
   const theme = useTheme();
   const [text, setText] = useState(currentValue > 0 ? String(currentValue) : '');
 
@@ -51,9 +57,14 @@ export function QuantityEntryModal({
           <ThemedText type="default" style={{ marginBottom: Spacing.one, textAlign: 'center' }}>
             {habitName}
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.three }}>
-            Target: {targetValue} {unit} a day
+          <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.one }}>
+            Target: {targetValue} {unit} {isWeekly ? 'a week' : 'a day'}
           </ThemedText>
+          {isWeekly ? (
+            <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.three }}>
+              Logged so far this week: {periodValue} {unit}
+            </ThemedText>
+          ) : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two }}>
             <TextInput
@@ -77,6 +88,11 @@ export function QuantityEntryModal({
               {unit}
             </ThemedText>
           </View>
+          {isWeekly ? (
+            <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
+              for today
+            </ThemedText>
+          ) : null}
 
           <View style={{ flexDirection: 'row', gap: Spacing.three, marginTop: Spacing.four, alignSelf: 'stretch' }}>
             <Pressable

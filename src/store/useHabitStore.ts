@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { create } from 'zustand';
 
 import { todayKey } from '@/lib/date';
+import { getCurrentPeriodDateKeys } from '@/lib/frequency';
 import { calculateStreak } from '@/lib/streak';
 import type { FrequencyType, HabitReminder, HabitWithStats, TrackingType } from '@/types/habit';
 
@@ -123,6 +124,10 @@ function buildHabitsWithStats(
     }
 
     const todayValue = valueByDate.get(today) ?? 0;
+    const periodValue = getCurrentPeriodDateKeys(new Date(), row.frequency_type).reduce(
+      (sum, key) => sum + (valueByDate.get(key) ?? 0),
+      0
+    );
     const frequencyDays = parseDayList(row.frequency_days);
 
     return {
@@ -144,7 +149,8 @@ function buildHabitsWithStats(
       reminders: (remindersByHabit.get(row.id) ?? []).sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute)),
       streak: calculateStreak(completedDates, { type: row.frequency_type, days: frequencyDays }),
       todayValue,
-      doneToday: todayValue >= goal,
+      periodValue,
+      doneToday: periodValue >= goal,
     };
   });
 }
@@ -240,18 +246,36 @@ export const useHabitStore = create<HabitStore>((set) => ({
   },
 
   toggleToday: async (db, habitId) => {
-    const today = todayKey();
-    const existing = await db.getFirstAsync<{ value: number }>(
-      'SELECT value FROM checkins WHERE habit_id = $habitId AND date = $date',
-      { $habitId: habitId, $date: today }
+    const habitRow = await db.getFirstAsync<{ frequency_type: FrequencyType }>(
+      'SELECT frequency_type FROM habits WHERE id = $habitId',
+      { $habitId: habitId }
     );
-    const isDone = (existing?.value ?? 0) > 0;
-    await db.runAsync(
-      `INSERT INTO checkins (habit_id, date, value) VALUES ($habitId, $date, $value)
-       ON CONFLICT(habit_id, date) DO UPDATE SET value = $value`,
-      { $habitId: habitId, $date: today, $value: isDone ? 0 : 1 }
+    const periodKeys = getCurrentPeriodDateKeys(new Date(), habitRow?.frequency_type ?? 'daily');
+    const placeholders = periodKeys.map(() => '?').join(',');
+
+    // Weekly habits are checked off once per week, not once per day — look
+    // for an existing completion anywhere in the current period (the whole
+    // week), not just today, so a second tap undoes whichever day was
+    // marked instead of stacking a new completion on top of it.
+    const completedInPeriod = await db.getFirstAsync<{ date: string }>(
+      `SELECT date FROM checkins WHERE habit_id = ? AND date IN (${placeholders}) AND value > 0 LIMIT 1`,
+      [habitId, ...periodKeys]
     );
-    await pruneEmptyCheckin(db, habitId, today);
+
+    if (completedInPeriod) {
+      await db.runAsync('UPDATE checkins SET value = 0 WHERE habit_id = $habitId AND date = $date', {
+        $habitId: habitId,
+        $date: completedInPeriod.date,
+      });
+      await pruneEmptyCheckin(db, habitId, completedInPeriod.date);
+    } else {
+      const today = todayKey();
+      await db.runAsync(
+        `INSERT INTO checkins (habit_id, date, value) VALUES ($habitId, $date, 1)
+         ON CONFLICT(habit_id, date) DO UPDATE SET value = 1`,
+        { $habitId: habitId, $date: today }
+      );
+    }
     await useHabitStore.getState().refresh(db);
   },
 

@@ -11,7 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { parseDateKey, todayKey } from '@/lib/date';
-import { countTotalCompletions, formatFrequencyDays, totalCompletionsUnit } from '@/lib/frequency';
+import { countTotalCompletions, expandCompletedDatesForDisplay, formatFrequencyDays, totalCompletionsUnit } from '@/lib/frequency';
 import { formatReminderTime } from '@/lib/time';
 import { useHabitStore } from '@/store/useHabitStore';
 
@@ -112,7 +112,8 @@ export default function HabitDetailScreen() {
 
       {habit.trackingType === 'quantity' ? (
         <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
-          Today: {habit.todayValue} / {habit.targetValue} {habit.unit}
+          {habit.frequencyType === 'weekly' ? 'This week' : 'Today'}: {habit.periodValue} / {habit.targetValue}{' '}
+          {habit.unit}
         </ThemedText>
       ) : null}
 
@@ -176,7 +177,10 @@ export default function HabitDetailScreen() {
       )}
 
       <ThemedView style={{ marginTop: Spacing.four }}>
-        <HeatmapGrid completedDates={habit.completedDates} color={habit.color} />
+        <HeatmapGrid
+          completedDates={expandCompletedDatesForDisplay(habit.completedDates, habit.frequencyType)}
+          color={habit.color}
+        />
       </ThemedView>
     </ScrollView>
   );

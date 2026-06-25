@@ -1,4 +1,4 @@
-import { format, startOfMonth } from 'date-fns';
+import { addMonths, format, startOfMonth } from 'date-fns';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
@@ -99,20 +99,39 @@ export function HeatmapGrid({ completedDates, color }: Props) {
 
   const currentMonthStart = startOfMonth(new Date());
   const currentMonthKey = toDateKey(currentMonthStart);
+  const nextMonthKey = toDateKey(startOfMonth(addMonths(currentMonthStart, 1)));
 
   // Only offer months that actually have tracked completions — no point
   // showing empty grids for months before the habit existed.
   const trackedPreviousMonthKeys = new Set<string>();
+  // A weekly habit's completed week can spill into next month (e.g. a
+  // completion on the last Tuesday of the month covers into next month) —
+  // show that overflow right away rather than hiding it behind the toggle.
+  const trackedFutureMonthKeys = new Set<string>();
   for (const date of completedDates) {
     if (date < currentMonthKey) trackedPreviousMonthKeys.add(date.slice(0, 7));
+    else if (date >= nextMonthKey) trackedFutureMonthKeys.add(date.slice(0, 7));
   }
   const previousMonths = Array.from(trackedPreviousMonthKeys)
     .sort((a, b) => b.localeCompare(a))
+    .map((key) => parseDateKey(`${key}-01`));
+  const futureMonths = Array.from(trackedFutureMonthKeys)
+    .sort((a, b) => a.localeCompare(b))
     .map((key) => parseDateKey(`${key}-01`));
 
   return (
     <View>
       <MonthSection monthStart={currentMonthStart} completedDates={completedDates} color={color} theme={theme} />
+
+      {futureMonths.map((monthStart) => (
+        <MonthSection
+          key={monthStart.toISOString()}
+          monthStart={monthStart}
+          completedDates={completedDates}
+          color={color}
+          theme={theme}
+        />
+      ))}
 
       {previousMonths.length > 0 ? (
         <ActionButton

@@ -144,6 +144,8 @@ export default function HomeScreen() {
           unit={quantityHabit.unit ?? ''}
           targetValue={quantityHabit.targetValue ?? 0}
           currentValue={quantityHabit.todayValue}
+          periodValue={quantityHabit.periodValue}
+          frequencyType={quantityHabit.frequencyType}
           onClose={() => setQuantityHabit(null)}
           onSubmit={(value) => {
             setTodayValue(db, quantityHabit.id, value);

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Alert, Pressable } from 'react-native';
+import { Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
+import { ActionButton } from '@/components/action-button';
 import { HabitForm, type HabitFormValues } from '@/components/habit-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -32,20 +33,16 @@ export default function EditHabitScreen() {
   async function handleSubmit(values: HabitFormValues) {
     setIsSaving(true);
 
-    await Promise.all(
-      target.reminders
-        .filter((reminder) => reminder.notificationId)
-        .map((reminder) => cancelHabitReminder(reminder.notificationId!))
-    );
+    await Promise.all(target.reminders.map((reminder) => cancelHabitReminder(reminder.notificationIds)));
 
     const reminders: ReminderInput[] = [];
     if (values.reminders.length > 0) {
       const granted = await requestNotificationPermission();
       for (const reminder of values.reminders) {
-        const notificationId = granted
-          ? await scheduleHabitReminder(values.name, reminder.hour, reminder.minute)
-          : null;
-        reminders.push({ hour: reminder.hour, minute: reminder.minute, notificationId });
+        const notificationIds = granted
+          ? await scheduleHabitReminder(values.name, reminder.hour, reminder.minute, reminder.days, values.soundEnabled)
+          : [];
+        reminders.push({ hour: reminder.hour, minute: reminder.minute, days: reminder.days, notificationIds });
       }
     }
 
@@ -58,6 +55,7 @@ export default function EditHabitScreen() {
       unit: values.unit,
       frequencyType: values.frequencyType,
       frequencyDays: values.frequencyDays,
+      soundEnabled: values.soundEnabled,
       reminders,
     });
     router.back();
@@ -70,11 +68,7 @@ export default function EditHabitScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await Promise.all(
-            target.reminders
-              .filter((reminder) => reminder.notificationId)
-              .map((reminder) => cancelHabitReminder(reminder.notificationId!))
-          );
+          await Promise.all(target.reminders.map((reminder) => cancelHabitReminder(reminder.notificationIds)));
           await deleteHabit(db, target.id);
           router.dismissAll();
         },
@@ -95,13 +89,12 @@ export default function EditHabitScreen() {
         unit: habit.unit,
         frequencyType: habit.frequencyType,
         frequencyDays: habit.frequencyDays,
-        reminders: habit.reminders.map((reminder) => ({ hour: reminder.hour, minute: reminder.minute })),
+        soundEnabled: habit.soundEnabled,
+        reminders: habit.reminders.map((reminder) => ({ hour: reminder.hour, minute: reminder.minute, days: reminder.days })),
       }}
       onSubmit={handleSubmit}
       footer={
-        <Pressable onPress={handleDelete} style={{ marginTop: Spacing.five, alignItems: 'center' }}>
-          <ThemedText style={{ color: '#ef4444' }}>Delete habit</ThemedText>
-        </Pressable>
+        <ActionButton label="Delete habit" onPress={handleDelete} style={{ marginTop: Spacing.five, alignSelf: 'center' }} />
       }
     />
   );

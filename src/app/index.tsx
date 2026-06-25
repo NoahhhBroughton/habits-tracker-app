@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
+import { NestableDraggableFlatList, NestableScrollContainer, type RenderItemParams } from 'react-native-draggable-flatlist';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
@@ -33,21 +33,20 @@ function HabitSection({ title, habits, db, onPressHabit, onPressAction }: Sectio
       <ThemedText type="small" themeColor="textSecondary" style={styles.sectionTitle}>
         {title}
       </ThemedText>
-      <DraggableFlatList
+      <NestableDraggableFlatList
         data={habits}
         keyExtractor={(habit) => String(habit.id)}
-        scrollEnabled={false}
         contentContainerStyle={styles.list}
         onDragEnd={({ data }) => reorderHabits(db, data.map((habit) => habit.id))}
         renderItem={({ item, drag, isActive }: RenderItemParams<HabitWithStats>) => (
-          <ThemedView style={{ opacity: isActive ? 0.7 : 1 }}>
+          <View style={{ opacity: isActive ? 0.7 : 1 }}>
             <HabitRow
               habit={item}
               onPress={() => onPressHabit(item)}
               onPressAction={() => onPressAction(item)}
               onLongPress={drag}
             />
-          </ThemedView>
+          </View>
         )}
       />
     </ThemedView>
@@ -102,7 +101,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <NestableScrollContainer contentContainerStyle={styles.scrollContent}>
         <HabitSection
           title="Daily"
           habits={dailyHabits}
@@ -124,7 +123,7 @@ export default function HomeScreen() {
           onPressHabit={(habit) => router.push(`/habit/${habit.id}`)}
           onPressAction={handleRowAction}
         />
-      </ScrollView>
+      </NestableScrollContainer>
       <Pressable
         onPress={() => router.push('/settings')}
         style={[styles.settingsFab, { backgroundColor: theme.backgroundElement }]}

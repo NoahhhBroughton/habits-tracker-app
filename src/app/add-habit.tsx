@@ -19,10 +19,10 @@ export default function AddHabitScreen() {
     if (values.reminders.length > 0) {
       const granted = await requestNotificationPermission();
       for (const reminder of values.reminders) {
-        const notificationId = granted
-          ? await scheduleHabitReminder(values.name, reminder.hour, reminder.minute)
-          : null;
-        reminders.push({ hour: reminder.hour, minute: reminder.minute, notificationId });
+        const notificationIds = granted
+          ? await scheduleHabitReminder(values.name, reminder.hour, reminder.minute, reminder.days, values.soundEnabled)
+          : [];
+        reminders.push({ hour: reminder.hour, minute: reminder.minute, days: reminder.days, notificationIds });
       }
     }
 
@@ -35,6 +35,7 @@ export default function AddHabitScreen() {
       unit: values.unit,
       frequencyType: values.frequencyType,
       frequencyDays: values.frequencyDays,
+      soundEnabled: values.soundEnabled,
       reminders,
     });
     router.back();

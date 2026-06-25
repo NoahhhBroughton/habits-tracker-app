@@ -23,7 +23,7 @@ function RootLayoutContent() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
         <Stack
           screenOptions={{
-            animation: 'slide_from_right',
+            animation: 'fade',
             contentStyle: { backgroundColor: theme.background },
           }}
         >

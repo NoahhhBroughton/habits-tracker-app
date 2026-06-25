@@ -1,25 +1,24 @@
-import { addMonths, endOfMonth, format, startOfMonth } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
+import { ActionButton } from '@/components/action-button';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
-import { toDateKey } from '@/lib/date';
+import { parseDateKey, toDateKey } from '@/lib/date';
 
 const CELL_GAP = 6;
-const MONTHS_BACK = 11;
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 type Props = {
   completedDates: Set<string>;
   color: string;
-  monthsBack?: number;
 };
 
 // Standard calendar layout: weekdays as columns (Sun..Sat), weeks as rows.
 // Always shows the full month, including days later than today.
 function buildMonthRows(monthStart: Date): (Date | null)[][] {
-  const totalDaysInMonth = endOfMonth(monthStart).getDate();
+  const totalDaysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
   const leadingBlanks = monthStart.getDay();
 
   const cells: (Date | null)[] = [];
@@ -94,28 +93,33 @@ function MonthSection({
   );
 }
 
-export function HeatmapGrid({ completedDates, color, monthsBack = MONTHS_BACK }: Props) {
+export function HeatmapGrid({ completedDates, color }: Props) {
   const theme = useTheme();
   const [showPrevious, setShowPrevious] = useState(false);
 
-  const today = new Date();
-  const currentMonthStart = startOfMonth(today);
+  const currentMonthStart = startOfMonth(new Date());
   const currentMonthKey = toDateKey(currentMonthStart);
 
-  const hasPriorActivity = Array.from(completedDates).some((date) => date < currentMonthKey);
-
-  const previousMonths = Array.from({ length: monthsBack }, (_, index) =>
-    addMonths(currentMonthStart, -(index + 1))
-  );
+  // Only offer months that actually have tracked completions — no point
+  // showing empty grids for months before the habit existed.
+  const trackedPreviousMonthKeys = new Set<string>();
+  for (const date of completedDates) {
+    if (date < currentMonthKey) trackedPreviousMonthKeys.add(date.slice(0, 7));
+  }
+  const previousMonths = Array.from(trackedPreviousMonthKeys)
+    .sort((a, b) => b.localeCompare(a))
+    .map((key) => parseDateKey(`${key}-01`));
 
   return (
     <View>
       <MonthSection monthStart={currentMonthStart} completedDates={completedDates} color={color} theme={theme} />
 
-      {hasPriorActivity ? (
-        <Pressable onPress={() => setShowPrevious((value) => !value)} style={{ marginBottom: 10 }}>
-          <ThemedText type="linkPrimary">{showPrevious ? 'Hide previous months' : 'View previous months ›'}</ThemedText>
-        </Pressable>
+      {previousMonths.length > 0 ? (
+        <ActionButton
+          label={showPrevious ? 'Hide previous months' : 'View previous months'}
+          onPress={() => setShowPrevious((value) => !value)}
+          style={{ alignSelf: 'flex-start', marginBottom: 10 }}
+        />
       ) : null}
 
       {showPrevious

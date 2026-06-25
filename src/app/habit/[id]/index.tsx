@@ -1,9 +1,10 @@
 import { useLayoutEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { format } from 'date-fns';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
+import { ActionButton } from '@/components/action-button';
 import { HeatmapGrid } from '@/components/heatmap-grid';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -16,6 +17,11 @@ import { useHabitStore } from '@/store/useHabitStore';
 
 function formatNoteDate(date: string) {
   return date === todayKey() ? 'Today' : format(parseDateKey(date), 'MMM d, yyyy');
+}
+
+function formatReminderSummary(reminder: { hour: number; minute: number; days: number[] | null }) {
+  const days = reminder.days ? formatFrequencyDays(reminder.days) : 'Every day';
+  return `${formatReminderTime(reminder.hour, reminder.minute)} · ${days}`;
 }
 
 export default function HabitDetailScreen() {
@@ -35,11 +41,7 @@ export default function HabitDetailScreen() {
     if (habit) {
       navigation.setOptions({
         title: `${habit.emoji} ${habit.name}`,
-        headerRight: () => (
-          <Pressable onPress={() => router.push(`/habit/${habit.id}/edit`)}>
-            <ThemedText type="linkPrimary">Edit</ThemedText>
-          </Pressable>
-        ),
+        headerRight: () => <ActionButton label="Edit" onPress={() => router.push(`/habit/${habit.id}/edit`)} />,
       });
     }
   }, [habit, navigation, router]);
@@ -55,7 +57,10 @@ export default function HabitDetailScreen() {
   const streakUnit = habit.frequencyType === 'weekly' ? 'week' : 'day';
   const totalCount = countTotalCompletions(habit.completedDates, habit.frequencyType);
   const totalUnit = totalCompletionsUnit(habit.frequencyType);
-  const lifetimeQuantity = habit.trackingType === 'quantity' ? Array.from(habit.valueByDate.values()).reduce((sum, value) => sum + value, 0) : 0;
+  const lifetimeQuantity =
+    habit.trackingType === 'quantity'
+      ? Array.from(habit.valueByDate.values()).reduce((sum, value) => sum + value, 0)
+      : 0;
   const hasNoteToday = habit.notesByDate.has(todayKey());
   const noteEntries = Array.from(habit.notesByDate.entries()).sort((a, b) => b[0].localeCompare(a[0]));
 
@@ -112,22 +117,21 @@ export default function HabitDetailScreen() {
       ) : null}
 
       <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
-        Total: {totalCount} {totalUnit}{totalCount === 1 ? '' : 's'}
+        Total: {totalCount} {totalUnit}
+        {totalCount === 1 ? '' : 's'}
       </ThemedText>
 
       {habit.trackingType === 'quantity' ? (
         <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
-          Lifetime total: {lifetimeQuantity} {habit.unit}
+          All-Time Total: {lifetimeQuantity} {habit.unit}
         </ThemedText>
       ) : null}
 
-      {habit.reminders.length > 0 ? (
-        <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
-          {habit.reminders.length === 1
-            ? `Reminder at ${formatReminderTime(habit.reminders[0].hour, habit.reminders[0].minute)}`
-            : `${habit.reminders.length} reminders a day`}
+      {habit.reminders.map((reminder) => (
+        <ThemedText key={reminder.id} type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
+          Reminder: {formatReminderSummary(reminder)}
         </ThemedText>
-      ) : null}
+      ))}
 
       <ThemedText type="small" themeColor="textSecondary" style={styles.sectionLabel}>
         Notes
@@ -146,18 +150,12 @@ export default function HabitDetailScreen() {
             style={[styles.noteInput, { color: theme.text, backgroundColor: theme.backgroundElement }]}
           />
           <View style={styles.noteEditorActions}>
-            <Pressable onPress={closeNoteEditor}>
-              <ThemedText themeColor="textSecondary">Cancel</ThemedText>
-            </Pressable>
-            <Pressable onPress={handleSubmitNote}>
-              <ThemedText type="linkPrimary">Save</ThemedText>
-            </Pressable>
+            <ActionButton label="Cancel" onPress={closeNoteEditor} style={{ flex: 1 }} />
+            <ActionButton label="Save" emphasis onPress={handleSubmitNote} style={{ flex: 1 }} />
           </View>
         </View>
       ) : !hasNoteToday ? (
-        <Pressable onPress={() => openNoteEditor(todayKey(), '')}>
-          <ThemedText type="linkPrimary">+ Add a note for today</ThemedText>
-        </Pressable>
+        <ActionButton label="+ Add a note for today" onPress={() => openNoteEditor(todayKey(), '')} style={{ alignSelf: 'flex-start' }} />
       ) : null}
 
       {noteEntries.map(([date, note]) =>
@@ -169,12 +167,10 @@ export default function HabitDetailScreen() {
               </ThemedText>
               <ThemedText style={{ marginTop: 2 }}>{note}</ThemedText>
             </View>
-            <Pressable onPress={() => openNoteEditor(date, note)} style={{ marginLeft: Spacing.two }}>
-              <ThemedText type="linkPrimary">Edit</ThemedText>
-            </Pressable>
-            <Pressable onPress={() => handleDeleteNote(date)} style={{ marginLeft: Spacing.three }}>
-              <ThemedText style={{ color: '#ef4444' }}>Delete</ThemedText>
-            </Pressable>
+            <View style={styles.noteActions}>
+              <ActionButton label="Edit" onPress={() => openNoteEditor(date, note)} style={styles.noteActionButton} />
+              <ActionButton label="Delete" onPress={() => handleDeleteNote(date)} style={styles.noteActionButton} />
+            </View>
           </View>
         )
       )}
@@ -203,7 +199,6 @@ const styles = StyleSheet.create({
   },
   noteEditorActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     gap: Spacing.three,
     marginTop: Spacing.two,
   },
@@ -213,5 +208,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: Spacing.three,
     marginTop: Spacing.two,
+  },
+  noteActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginLeft: Spacing.two,
+  },
+  noteActionButton: {
+    paddingHorizontal: Spacing.two,
+    minWidth: 56,
   },
 });

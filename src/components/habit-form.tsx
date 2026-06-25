@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Svg, { Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 
+import { ActionButton } from '@/components/action-button';
 import { ColorWheelPicker } from '@/components/color-wheel-picker';
 import { EmojiKeyboardPicker } from '@/components/emoji-keyboard-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -27,7 +28,7 @@ const COLOR_ROWS = [
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export type ReminderTime = { hour: number; minute: number };
+export type ReminderTime = { hour: number; minute: number; days: number[] | null };
 
 export type HabitFormValues = {
   name: string;
@@ -38,6 +39,7 @@ export type HabitFormValues = {
   unit: string | null;
   frequencyType: FrequencyType;
   frequencyDays: number[] | null;
+  soundEnabled: boolean;
   reminders: ReminderTime[];
 };
 
@@ -126,6 +128,7 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit, 
   const [frequencyType, setFrequencyType] = useState<FrequencyType>(initialValues?.frequencyType ?? 'daily');
   const [frequencyDays, setFrequencyDays] = useState<number[]>(initialValues?.frequencyDays ?? []);
 
+  const [soundEnabled, setSoundEnabled] = useState(initialValues?.soundEnabled ?? true);
   const [reminders, setReminders] = useState<ReminderTime[]>(initialValues?.reminders ?? []);
   const [editingReminderIndex, setEditingReminderIndex] = useState<number | null>(null);
 
@@ -142,7 +145,7 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit, 
   }
 
   function addReminder() {
-    setReminders((prev) => [...prev, { hour: 9, minute: 0 }]);
+    setReminders((prev) => [...prev, { hour: 9, minute: 0, days: null }]);
     setEditingReminderIndex(reminders.length);
   }
 
@@ -151,13 +154,29 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit, 
     if (editingReminderIndex === index) setEditingReminderIndex(null);
   }
 
+  function setReminderDays(index: number, days: number[] | null) {
+    setReminders((prev) => prev.map((reminder, i) => (i === index ? { ...reminder, days } : reminder)));
+  }
+
+  function toggleReminderDay(index: number, day: number) {
+    setReminders((prev) =>
+      prev.map((reminder, i) => {
+        if (i !== index) return reminder;
+        const base = reminder.days ?? [];
+        const updated = base.includes(day) ? base.filter((value) => value !== day) : [...base, day].sort((a, b) => a - b);
+        return { ...reminder, days: updated.length > 0 ? updated : null };
+      })
+    );
+  }
+
   function handleReminderTimeChange(event: DateTimePickerEvent, selectedDate?: Date) {
     if (Platform.OS === 'android') {
       setEditingReminderIndex(null);
     }
     if (event.type === 'dismissed' || !selectedDate || editingReminderIndex === null) return;
-    const updated = { hour: selectedDate.getHours(), minute: selectedDate.getMinutes() };
-    setReminders((prev) => prev.map((reminder, i) => (i === editingReminderIndex ? updated : reminder)));
+    const hour = selectedDate.getHours();
+    const minute = selectedDate.getMinutes();
+    setReminders((prev) => prev.map((reminder, i) => (i === editingReminderIndex ? { ...reminder, hour, minute } : reminder)));
   }
 
   function handleSubmit() {
@@ -171,6 +190,7 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit, 
       unit: trackingType === 'quantity' ? unit.trim() : null,
       frequencyType,
       frequencyDays: frequencyType === 'specific_days' ? frequencyDays : null,
+      soundEnabled,
       reminders,
     });
   }
@@ -374,32 +394,65 @@ export function HabitForm({ initialValues, submitLabel, isSubmitting, onSubmit, 
       <ThemedText type="small" themeColor="textSecondary" style={styles.sectionLabel}>
         Reminders
       </ThemedText>
+
+      <View style={[styles.soundRow, { backgroundColor: theme.backgroundElement }]}>
+        <View style={{ flex: 1 }}>
+          <ThemedText>Play sound</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Plays a sound when a reminder goes off
+          </ThemedText>
+        </View>
+        <Switch
+          value={soundEnabled}
+          onValueChange={setSoundEnabled}
+          trackColor={{ false: theme.backgroundElement, true: theme.backgroundSelected }}
+          thumbColor={soundEnabled ? '#ffffff' : '#000000'}
+          ios_backgroundColor={theme.backgroundElement}
+        />
+      </View>
+
       {reminders.map((reminder, index) => (
-        <View key={index} style={[styles.reminderRow, { backgroundColor: theme.backgroundElement }]}>
-          <Pressable onPress={() => setEditingReminderIndex(index)} style={{ flex: 1 }}>
-            <ThemedText type="linkPrimary">{formatTime(reminder)}</ThemedText>
-          </Pressable>
-          <Pressable onPress={() => removeReminder(index)}>
-            <ThemedText themeColor="textSecondary">✕</ThemedText>
-          </Pressable>
+        <View key={index} style={[styles.reminderCard, { backgroundColor: theme.backgroundElement }]}>
+          <View style={styles.reminderTimeRow}>
+            <Pressable onPress={() => setEditingReminderIndex(index)} style={{ flex: 1 }}>
+              <ThemedText type="smallBold">{formatTime(reminder)}</ThemedText>
+            </Pressable>
+            <Pressable onPress={() => removeReminder(index)}>
+              <ThemedText themeColor="textSecondary">✕</ThemedText>
+            </Pressable>
+          </View>
+          <View style={styles.reminderDaysRow}>
+            <Pressable
+              onPress={() => setReminderDays(index, null)}
+              style={[
+                styles.dayPill,
+                { backgroundColor: !reminder.days ? theme.backgroundSelected : theme.background },
+              ]}
+            >
+              <ThemedText style={{ fontSize: 11 }}>Every day</ThemedText>
+            </Pressable>
+            {WEEKDAY_LABELS.map((label, day) => (
+              <Pressable
+                key={day}
+                onPress={() => toggleReminderDay(index, day)}
+                style={[
+                  styles.miniWeekdayCircle,
+                  { backgroundColor: reminder.days?.includes(day) ? theme.backgroundSelected : theme.background },
+                ]}
+              >
+                <ThemedText style={{ fontSize: 11 }}>{label}</ThemedText>
+              </Pressable>
+            ))}
+          </View>
         </View>
       ))}
-      <Pressable onPress={addReminder} style={styles.addReminderButton}>
-        <ThemedText type="linkPrimary">+ Add reminder</ThemedText>
-      </Pressable>
-      {reminders.length > 1 ? (
-        <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
-          You'll get a notification at each time, every day.
-        </ThemedText>
-      ) : null}
+      <ActionButton label="+ Add reminder" onPress={addReminder} style={styles.addReminderButton} />
 
       {editingReminderIndex !== null ? (
         <ThemedView style={styles.timePickerWrap}>
           <DateTimePicker mode="time" value={reminderPickerValue} onChange={handleReminderTimeChange} />
           {Platform.OS === 'ios' ? (
-            <Pressable onPress={() => setEditingReminderIndex(null)} style={styles.doneButton}>
-              <ThemedText type="linkPrimary">Done</ThemedText>
-            </Pressable>
+            <ActionButton label="Done" onPress={() => setEditingReminderIndex(null)} style={styles.doneButton} />
           ) : null}
         </ThemedView>
       ) : null}
@@ -513,26 +566,55 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
   },
-  reminderRow: {
+  soundRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: Spacing.two,
     paddingVertical: 10,
     paddingHorizontal: Spacing.three,
     borderRadius: 12,
   },
-  addReminderButton: {
+  reminderCard: {
     marginTop: Spacing.two,
     paddingVertical: 10,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 12,
+  },
+  reminderTimeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  reminderDaysRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: Spacing.two,
+  },
+  dayPill: {
+    paddingHorizontal: 8,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniWeekdayCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addReminderButton: {
+    marginTop: Spacing.two,
+    alignSelf: 'center',
   },
   timePickerWrap: {
     alignItems: 'center',
     marginTop: Spacing.two,
   },
   doneButton: {
-    paddingVertical: Spacing.two,
+    marginTop: Spacing.two,
   },
   saveButton: {
     marginTop: Spacing.five,
